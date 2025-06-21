@@ -3,155 +3,372 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebSocket Test Client</title>
+    <title>Disaster Relief Platform - Client</title>
+    <!-- Official Socket.IO Client Library -->
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        .event-log { 
-            background: #f5f5f5; 
-            padding: 15px; 
-            border-radius: 5px; 
-            margin: 10px 0; 
-            max-height: 400px; 
-            overflow-y: auto; 
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; background-color: #f4f7f6; color: #333; }
+        .container { display: flex; flex-wrap: wrap; padding: 20px; gap: 20px; }
+        .column { flex: 1; min-width: 400px; display: flex; flex-direction: column; gap: 20px; }
+        .card { background-color: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); padding: 20px; }
+        h1, h2, h3 { color: #1a252f; }
+        h1 { text-align: center; width: 100%; }
+        form { display: flex; flex-direction: column; gap: 15px; }
+        input, textarea, button { padding: 10px; border-radius: 5px; border: 1px solid #ccc; font-size: 1rem; }
+        textarea { resize: vertical; min-height: 80px; }
+        button { background-color: #007bff; color: white; border: none; cursor: pointer; transition: background-color 0.2s; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+        button:hover:not(:disabled) { background-color: #0056b3; }
+        button:disabled { background-color: #a0c9ff; cursor: not-allowed; }
+        
+        /* Styles for the disasters list */
+        #disasters-list {
+            max-height: 400px; /* Set a max height for the list */
+            overflow-y: auto; /* Add a scrollbar only when needed */
         }
-        .event { 
-            margin: 5px 0; 
-            padding: 8px; 
-            border-left: 3px solid #007bff; 
-            background: white; 
+        .disaster-list-item { padding: 10px; border-bottom: 1px solid #eee; cursor: pointer; }
+        .disaster-list-item:hover { background-color: #f0f0f0; }
+        .disaster-list-item.selected { background-color: #e0eafc; }
+
+        .event-log { max-height: 200px; overflow-y: auto; background: #2d3748; color: #f7fafc; padding: 15px; font-family: monospace; font-size: 0.9em; }
+        .event { padding: 2px 0; border-bottom: 1px solid #4a5568; }
+        .details-section { border-top: 1px solid #eee; margin-top: 15px; padding-top: 15px; }
+        #connection-status { text-align: center; padding: 10px; background-color: #f8d7da; color: #721c24; position: fixed; top: 0; width: 100%; z-index: 1000; }
+        #connection-status.connected { background-color: #d4edda; color: #155724; }
+        
+        /* Loader CSS */
+        .loader {
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #ffffff;
+            border-radius: 50%;
+            width: 16px;
+            height: 16px;
+            animation: spin 1s linear infinite;
         }
-        .disaster { border-left-color: #28a745; }
-        .social { border-left-color: #ffc107; }
-        .resource { border-left-color: #dc3545; }
-        .official { border-left-color: #6f42c1; }
-        button { 
-            margin: 5px; 
-            padding: 10px 15px; 
-            border: none; 
-            border-radius: 3px; 
-            cursor: pointer; 
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
-        .create { background: #28a745; color: white; }
-        .social { background: #ffc107; color: black; }
-        .resource { background: #dc3545; color: white; }
-        .official { background: #6f42c1; color: white; }
     </style>
 </head>
 <body>
-    <h1>WebSocket Test Client</h1>
-    <p>This page will show real-time updates from your disaster relief API</p>
-    
-    <div>
-        <button class="create" onclick="testCreateDisaster()">Test Create Disaster</button>
-        <button class="social" onclick="testSocialMedia()">Test Social Media</button>
-        <button class="resource" onclick="testResources()">Test Resources</button>
-        <button class="official" onclick="testOfficialUpdates()">Test Official Updates</button>
-    </div>
-    
-    <h3>Real-time Events:</h3>
-    <div id="eventLog" class="event-log"></div>
 
-    <script>
-        // Connect to your Socket.IO server
-        const socket = io('http://localhost:3000');
-        
-        const eventLog = document.getElementById('eventLog');
-        
-        // Listen for all events
-        socket.on('connect', () => {
-            addEvent('Connected to server', 'connection');
-        });
-        
-        socket.on('disconnect', () => {
-            addEvent('Disconnected from server', 'connection');
-        });
-        
-        socket.on('disaster_updated', (data) => {
-            addEvent(`Disaster Updated: ${JSON.stringify(data, null, 2)}`, 'disaster');
-        });
-        
-        socket.on('social_media_updated', (data) => {
-            addEvent(`Social Media Updated: ${JSON.stringify(data, null, 2)}`, 'social');
-        });
-        
-        socket.on('resources_updated', (data) => {
-            addEvent(`Resources Updated: ${JSON.stringify(data, null, 2)}`, 'resource');
-        });
-        
-        socket.on('official_updates_updated', (data) => {
-            addEvent(`Official Updates: ${JSON.stringify(data, null, 2)}`, 'official');
-        });
-        
-        function addEvent(message, type) {
-            const eventDiv = document.createElement('div');
-            eventDiv.className = `event ${type}`;
-            eventDiv.innerHTML = `<strong>${new Date().toLocaleTimeString()}</strong>: ${message}`;
-            eventLog.appendChild(eventDiv);
-            eventLog.scrollTop = eventLog.scrollHeight;
+    <div id="connection-status">Connecting to server...</div>
+
+    <div class="container">
+        <h1>Disaster Relief Platform</h1>
+
+        <!-- Left Column: Forms and Actions -->
+        <div class="column">
+            <div class="card">
+                <h2>Create Disaster</h2>
+                <form id="disaster-form">
+                    <input type="text" id="title" placeholder="Disaster Title (e.g., Miami Floods)" required>
+                    <textarea id="description" placeholder="Description (e.g., 'Flooding in downtown Miami due to heavy rain.')" required></textarea>
+                    <input type="text" id="tags" placeholder="Tags (comma-separated, e.g., flood,rain)">
+                    <button type="submit"><span class="btn-text">Create Disaster</span></button>
+                </form>
+            </div>
+            <div class="card">
+                <h2>Test Other Endpoints</h2>
+                <form id="geocode-form">
+                    <input type="text" id="geocode-input" placeholder="Text to geocode (e.g., Manhattan, NYC)">
+                    <button type="submit"><span class="btn-text">Geocode Location</span></button>
+                </form>
+                <form id="verify-image-form" class="details-section">
+                    <input type="url" id="image-url-input" placeholder="Image URL to verify">
+                    <button type="submit"><span class="btn-text">Verify Image</span></button>
+                </form>
+            </div>
+            <div class="card">
+                <h2>Real-Time Event Log</h2>
+                <div id="event-log" class="event-log"></div>
+            </div>
+        </div>
+
+        <!-- Right Column: Data Display -->
+        <div class="column">
+            <div class="card">
+                <h2>Disasters</h2>
+                <div id="disasters-list"></div>
+            </div>
+            <div class="card" id="details-card" style="display:none;">
+                <h2>Disaster Details</h2>
+                <div id="disaster-details"></div>
+            </div>
+        </div>
+    </div>
+
+<script>
+    const API_URL = 'https://drc-platform.onrender.com';
+    let selectedDisasterId = null;
+
+    // --- DOM Elements ---
+    const disasterForm = document.getElementById('disaster-form');
+    const geocodeForm = document.getElementById('geocode-form');
+    const verifyImageForm = document.getElementById('verify-image-form');
+    const disastersListDiv = document.getElementById('disasters-list');
+    const disasterDetailsDiv = document.getElementById('disaster-details');
+    const detailsCard = document.getElementById('details-card');
+    const eventLogDiv = document.getElementById('event-log');
+    const connectionStatusDiv = document.getElementById('connection-status');
+
+    // --- WebSocket Connection ---
+    const socket = io(API_URL, { transports: ['websocket', 'polling'] });
+
+    socket.on('connect', () => {
+        updateConnectionStatus(true);
+        addEventToLog('Socket connected successfully!', 'success');
+    });
+
+    socket.on('disconnect', () => {
+        updateConnectionStatus(false);
+        addEventToLog('Socket disconnected!', 'error');
+    });
+    
+    socket.on('connect_error', (err) => {
+        updateConnectionStatus(false, `Connection Error: ${err.message}`);
+    });
+
+    // --- WebSocket Event Handlers ---
+    socket.on('disaster_updated', (data) => {
+        addEventToLog(`EVENT[disaster_updated]: ${data.title || data.id}`, 'info');
+        fetchDisasters(); // Refresh the list
+    });
+
+    socket.on('social_media_updated', (data) => {
+        addEventToLog(`EVENT[social_media_updated] received.`, 'info');
+        if (selectedDisasterId) renderDisasterDetailsContent('Social Media', data);
+    });
+    
+    socket.on('resources_updated', (data) => {
+        addEventToLog(`EVENT[resources_updated] received.`, 'info');
+        if (selectedDisasterId) renderDisasterDetailsContent('Nearby Resources', data);
+    });
+
+    socket.on('official_updates_updated', (data) => {
+        addEventToLog(`EVENT[official_updates_updated] received.`, 'info');
+        if (selectedDisasterId) renderDisasterDetailsContent('Official Updates', data);
+    });
+
+    // --- Core Functions ---
+    async function fetchDisasters() {
+        try {
+            const response = await fetch(`${API_URL}/api/disasters`);
+            const disasters = await response.json();
+            renderDisasters(disasters);
+        } catch (error) {
+            console.error('Failed to fetch disasters:', error);
         }
-        
-        // Test functions
-        async function testCreateDisaster() {
-            try {
-                const response = await fetch('http://localhost:3000/api/disasters', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        title: "Test Disaster - " + new Date().toLocaleTimeString(),
-                        location_name: "Test Location",
-                        location: {
-                            type: "Point",
-                            coordinates: [-74.0060, 40.7128]
-                        },
-                        description: "Test disaster for WebSocket testing",
-                        tags: ["test", "websocket"],
-                        owner_id: "testUser"
-                    })
-                });
-                
-                if (response.ok) {
-                    addEvent('Disaster created successfully', 'disaster');
-                } else {
-                    addEvent('Failed to create disaster', 'disaster');
-                }
-            } catch (error) {
-                addEvent(`Error: ${error.message}`, 'disaster');
+    }
+
+    function renderDisasters(disasters) {
+        disastersListDiv.innerHTML = '';
+        if (!disasters || disasters.length === 0) {
+            disastersListDiv.innerHTML = '<p>No disasters found. Create one!</p>';
+            return;
+        }
+        disasters.forEach(disaster => {
+            const item = document.createElement('div');
+            item.className = 'disaster-list-item';
+            if (disaster.id === selectedDisasterId) {
+                item.classList.add('selected');
             }
-        }
+            item.innerHTML = `<strong>${disaster.title}</strong><br><small>${disaster.location_name}</small>`;
+            item.onclick = () => selectDisaster(disaster.id);
+            disastersListDiv.appendChild(item);
+        });
+    }
+
+    async function selectDisaster(disasterId) {
+        selectedDisasterId = disasterId;
+        detailsCard.style.display = 'block';
+        disasterDetailsDiv.innerHTML = '<h3>Loading details...</h3>';
+        fetchDisasters(); 
         
-        async function testSocialMedia() {
-            try {
-                const response = await fetch('http://localhost:3000/api/disasters/123/social-media');
-                if (response.ok) {
-                    addEvent('Social media endpoint called', 'social');
-                }
-            } catch (error) {
-                addEvent(`Error: ${error.message}`, 'social');
+        try {
+            const response = await fetch(`${API_URL}/api/disasters`);
+            const disasters = await response.json();
+            const disaster = disasters.find(d => d.id === disasterId);
+
+            if (!disaster) {
+                disasterDetailsDiv.innerHTML = '<h3>Error: Disaster not found.</h3>';
+                return;
             }
+
+            disasterDetailsDiv.innerHTML = `
+                <h3>${disaster.title}</h3>
+                <p><strong>ID:</strong> ${disaster.id}</p>
+                <p><strong>Location:</strong> ${disaster.location_name}</p>
+                <p><strong>Description:</strong> ${disaster.description}</p>
+                <p><strong>Tags:</strong> ${disaster.tags.join(', ')}</p>
+                <div class="details-section">
+                    <button onclick="fetchDisasterSubData('social-media', this)"><span class="btn-text">Get Social Media Feed</span></button>
+                    <button onclick="fetchDisasterSubData('resources', this)"><span class="btn-text">Get Nearby Resources</span></button>
+                    <button onclick="fetchDisasterSubData('official-updates', this)"><span class="btn-text">Get Official Updates</span></button>
+                </div>
+                <div id="disaster-sub-details"></div>
+            `;
+        } catch (error) {
+            disasterDetailsDiv.innerHTML = '<h3>Could not load disaster details.</h3>';
         }
+    }
+    
+    async function fetchDisasterSubData(type, button) {
+        if (!selectedDisasterId) return;
+        showLoader(button);
+        const subDetailsDiv = document.getElementById('disaster-sub-details');
+        subDetailsDiv.innerHTML = 'Loading...';
         
-        async function testResources() {
-            try {
-                const response = await fetch('http://localhost:3000/api/disasters/123/resources?lat=40.7128&lon=-74.0060');
-                if (response.ok) {
-                    addEvent('Resources endpoint called', 'resource');
-                }
-            } catch (error) {
-                addEvent(`Error: ${error.message}`, 'resource');
+        try {
+            let url = `${API_URL}/api/disasters/${selectedDisasterId}/${type}`;
+            if (type === 'resources') {
+                url += '?lat=40.7128&lon=-74.0060';
             }
+            const response = await fetch(url);
+            const data = await response.json();
+            renderDisasterDetailsContent(type.replace('-', ' '), data);
+        } catch(error) {
+             subDetailsDiv.innerHTML = `<p>Error fetching ${type}.</p>`;
+        } finally {
+            hideLoader(button);
         }
-        
-        async function testOfficialUpdates() {
-            try {
-                const response = await fetch('http://localhost:3000/api/disasters/123/official-updates');
-                if (response.ok) {
-                    addEvent('Official updates endpoint called', 'official');
-                }
-            } catch (error) {
-                addEvent(`Error: ${error.message}`, 'official');
+    }
+    
+    function renderDisasterDetailsContent(title, data) {
+        const subDetailsDiv = document.getElementById('disaster-sub-details');
+        if (!subDetailsDiv) return;
+        subDetailsDiv.innerHTML = `<h4>${title.charAt(0).toUpperCase() + title.slice(1)}</h4><pre>${JSON.stringify(data, null, 2)}</pre>`;
+    }
+
+    // --- Event Listeners ---
+    disasterForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const button = e.submitter;
+        showLoader(button);
+
+        try {
+            const title = document.getElementById('title').value;
+            const description = document.getElementById('description').value;
+            const tags = document.getElementById('tags').value.split(',').map(tag => tag.trim()).filter(Boolean);
+
+            addEventToLog('Geocoding description to find location...', 'info');
+            const geoResponse = await fetch(`${API_URL}/api/geocode`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ description: description || title })
+            });
+
+            if (!geoResponse.ok) {
+                alert('Could not geocode location from description. Please provide a more specific description or title.');
+                return;
             }
+            const geoData = await geoResponse.json();
+            addEventToLog(`Geocoded to: ${geoData.location_name}`, 'success');
+
+            const disasterPayload = { title, description, tags, location_name: geoData.location_name, location: { type: 'Point', coordinates: [geoData.lon, geoData.lat] } };
+
+            const response = await fetch(`${API_URL}/api/disasters`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(disasterPayload)
+            });
+
+            if (response.ok) {
+                addEventToLog('Disaster created successfully!', 'success');
+                disasterForm.reset();
+                fetchDisasters();
+            } else {
+                alert('Failed to create disaster.');
+            }
+        } catch (error) {
+            alert('An error occurred while creating the disaster.');
+        } finally {
+            hideLoader(button);
         }
-    </script>
+    });
+
+    geocodeForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const button = e.submitter;
+        showLoader(button);
+        try {
+            const text = document.getElementById('geocode-input').value;
+            const response = await fetch(`${API_URL}/api/geocode`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ description: text })
+            });
+            const data = await response.json();
+            alert(`Geocoded Result:\n${JSON.stringify(data, null, 2)}`);
+        } catch (error) {
+            alert('Failed to geocode.');
+        } finally {
+            hideLoader(button);
+        }
+    });
+    
+    verifyImageForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        if (!selectedDisasterId) {
+            alert("Please select a disaster first.");
+            return;
+        }
+        const button = e.submitter;
+        showLoader(button);
+        try {
+            const imageUrl = document.getElementById('image-url-input').value;
+            const response = await fetch(`${API_URL}/api/disasters/${selectedDisasterId}/verify-image`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ image_url: imageUrl })
+            });
+            const data = await response.json();
+            renderDisasterDetailsContent('Image Verification', data);
+        } catch(error) {
+            renderDisasterDetailsContent('Image Verification', { error: 'Failed to verify image.' });
+        } finally {
+            hideLoader(button);
+        }
+    });
+
+    // --- Utility Functions ---
+    function showLoader(button) {
+        if (!button) return;
+        const btnText = button.querySelector('.btn-text');
+        if (btnText) btnText.style.display = 'none';
+        button.insertAdjacentHTML('afterbegin', '<div class="loader"></div>');
+        button.disabled = true;
+    }
+
+    function hideLoader(button) {
+        if (!button) return;
+        const loader = button.querySelector('.loader');
+        if (loader) loader.remove();
+        const btnText = button.querySelector('.btn-text');
+        if (btnText) btnText.style.display = '';
+        button.disabled = false;
+    }
+    
+    function addEventToLog(message, type = 'info') {
+        const event = document.createElement('div');
+        event.className = `event ${type}`;
+        event.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+        eventLogDiv.prepend(event);
+    }
+
+    function updateConnectionStatus(isConnected, message) {
+        if (isConnected) {
+            connectionStatusDiv.textContent = 'Connected to Real-Time Server';
+            connectionStatusDiv.className = 'connected';
+        } else {
+            connectionStatusDiv.textContent = message || 'Disconnected from Real-Time Server';
+            connectionStatusDiv.className = '';
+        }
+    }
+
+    // --- Initial Load ---
+    document.addEventListener('DOMContentLoaded', fetchDisasters);
+</script>
+
 </body>
 </html>
