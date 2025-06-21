@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket Test Client</title>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .event-log { 
+            background: #f5f5f5; 
+            padding: 15px; 
+            border-radius: 5px; 
+            margin: 10px 0; 
+            max-height: 400px; 
+            overflow-y: auto; 
+        }
+        .event { 
+            margin: 5px 0; 
+            padding: 8px; 
+            border-left: 3px solid #007bff; 
+            background: white; 
+        }
+        .disaster { border-left-color: #28a745; }
+        .social { border-left-color: #ffc107; }
+        .resource { border-left-color: #dc3545; }
+        .official { border-left-color: #6f42c1; }
+        button { 
+            margin: 5px; 
+            padding: 10px 15px; 
+            border: none; 
+            border-radius: 3px; 
+            cursor: pointer; 
+        }
+        .create { background: #28a745; color: white; }
+        .social { background: #ffc107; color: black; }
+        .resource { background: #dc3545; color: white; }
+        .official { background: #6f42c1; color: white; }
+    </style>
+</head>
+<body>
+    <h1>WebSocket Test Client</h1>
+    <p>This page will show real-time updates from your disaster relief API</p>
+    
+    <div>
+        <button class="create" onclick="testCreateDisaster()">Test Create Disaster</button>
+        <button class="social" onclick="testSocialMedia()">Test Social Media</button>
+        <button class="resource" onclick="testResources()">Test Resources</button>
+        <button class="official" onclick="testOfficialUpdates()">Test Official Updates</button>
+    </div>
+    
+    <h3>Real-time Events:</h3>
+    <div id="eventLog" class="event-log"></div>
+
+    <script>
+        // Connect to your Socket.IO server
+        const socket = io('http://localhost:3000');
+        
+        const eventLog = document.getElementById('eventLog');
+        
+        // Listen for all events
+        socket.on('connect', () => {
+            addEvent('Connected to server', 'connection');
+        });
+        
+        socket.on('disconnect', () => {
+            addEvent('Disconnected from server', 'connection');
+        });
+        
+        socket.on('disaster_updated', (data) => {
+            addEvent(`Disaster Updated: ${JSON.stringify(data, null, 2)}`, 'disaster');
+        });
+        
+        socket.on('social_media_updated', (data) => {
+            addEvent(`Social Media Updated: ${JSON.stringify(data, null, 2)}`, 'social');
+        });
+        
+        socket.on('resources_updated', (data) => {
+            addEvent(`Resources Updated: ${JSON.stringify(data, null, 2)}`, 'resource');
+        });
+        
+        socket.on('official_updates_updated', (data) => {
+            addEvent(`Official Updates: ${JSON.stringify(data, null, 2)}`, 'official');
+        });
+        
+        function addEvent(message, type) {
+            const eventDiv = document.createElement('div');
+            eventDiv.className = `event ${type}`;
+            eventDiv.innerHTML = `<strong>${new Date().toLocaleTimeString()}</strong>: ${message}`;
+            eventLog.appendChild(eventDiv);
+            eventLog.scrollTop = eventLog.scrollHeight;
+        }
+        
+        // Test functions
+        async function testCreateDisaster() {
+            try {
+                const response = await fetch('http://localhost:3000/api/disasters', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        title: "Test Disaster - " + new Date().toLocaleTimeString(),
+                        location_name: "Test Location",
+                        location: {
+                            type: "Point",
+                            coordinates: [-74.0060, 40.7128]
+                        },
+                        description: "Test disaster for WebSocket testing",
+                        tags: ["test", "websocket"],
+                        owner_id: "testUser"
+                    })
+                });
+                
+                if (response.ok) {
+                    addEvent('Disaster created successfully', 'disaster');
+                } else {
+                    addEvent('Failed to create disaster', 'disaster');
+                }
+            } catch (error) {
+                addEvent(`Error: ${error.message}`, 'disaster');
+            }
+        }
+        
+        async function testSocialMedia() {
+            try {
+                const response = await fetch('http://localhost:3000/api/disasters/123/social-media');
+                if (response.ok) {
+                    addEvent('Social media endpoint called', 'social');
+                }
+            } catch (error) {
+                addEvent(`Error: ${error.message}`, 'social');
+            }
+        }
+        
+        async function testResources() {
+            try {
+                const response = await fetch('http://localhost:3000/api/disasters/123/resources?lat=40.7128&lon=-74.0060');
+                if (response.ok) {
+                    addEvent('Resources endpoint called', 'resource');
+                }
+            } catch (error) {
+                addEvent(`Error: ${error.message}`, 'resource');
+            }
+        }
+        
+        async function testOfficialUpdates() {
+            try {
+                const response = await fetch('http://localhost:3000/api/disasters/123/official-updates');
+                if (response.ok) {
+                    addEvent('Official updates endpoint called', 'official');
+                }
+            } catch (error) {
+                addEvent(`Error: ${error.message}`, 'official');
+            }
+        }
+    </script>
+</body>
+</html>
